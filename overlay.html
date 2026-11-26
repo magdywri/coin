@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coin Challenge Overlay</title>
+<link rel="stylesheet" href="look.css">
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  html { color-scheme: dark; }
+  html, body { background: transparent; overflow: hidden; }
+  body { padding: 10px; transform-origin: top left; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js"></script>
+<script src="card.js"></script>
+<script src="relay.js"></script>
+<script src="brain.js"></script>
+<script>
+  var q = new URLSearchParams(location.search);
+  var sc = parseFloat(q.get('scale'));
+  if (sc > 0.2 && sc < 4) document.body.style.transform = 'scale(' + sc + ')';
+  var card = CoinCard.mount(document.getElementById('root'));
+  var onGift = function (g) { if (!g.ignored) card.onGift(g); };
+  if (q.get('view')) {
+    // معاينة جوه لوحة التحكم: بتعرض بس، والعقل الحقيقي في صفحة الشاشة اللي في تيك توك استوديو
+    var socket = io();
+    socket.on('state', card.render); socket.on('gift', onGift); socket.on('extend', card.onExtend);
+  } else {
+    CCBrain.start({ handlers: { state: card.render, gift: onGift, extend: card.onExtend } });
+  }
+</script>
+</body>
+</html>

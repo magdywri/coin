@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>لوحة تحكم تحدي العملات</title>
+<link rel="stylesheet" href="look.css">
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  body { background: #0b0b0d; color: #eee; font-family: "Segoe UI", Tahoma, "Noto Kufi Arabic", Arial, sans-serif; min-height: 100vh; }
+  header { padding: 14px 22px; background: #141416; border-bottom: 1px solid #222; font-weight: 700; font-size: 18px; display: flex; align-items: center; gap: 10px; }
+  .bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 14px 22px; background: #101012; border-bottom: 1px solid #222; }
+  button, select, input { font-family: inherit; font-size: 14px; border-radius: 9px; border: 1px solid #333; background: #1b1b1f; color: #eee; padding: 9px 14px; }
+  button { cursor: pointer; font-weight: 700; transition: filter .15s; }
+  button:hover { filter: brightness(1.25); }
+  .go { background: #0e2d19; color: #34e07a; border-color: #1c6b3a; }
+  .pause { background: #2d2308; color: #ffc83d; border-color: #7a5d12; }
+  .reset { background: #2d0e12; color: #ff6b78; border-color: #7a1c26; }
+  .copy { background: #3a3a3e; }
+  .url { flex: 1; min-width: 220px; direction: ltr; font-family: monospace; }
+  .main { display: grid; grid-template-columns: 1fr 420px; gap: 18px; padding: 18px 22px; }
+  @media (max-width: 900px) { .main { grid-template-columns: 1fr; } }
+  .panel { background: #131316; border: 1px solid #232327; border-radius: 14px; padding: 16px; }
+  .panel h3 { font-size: 15px; margin-bottom: 12px; color: #ff6b78; }
+  .field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; font-size: 13px; color: #aaa; }
+  .field input, .field select { width: 100%; color: #fff; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+  .themes { display: flex; flex-wrap: wrap; gap: 8px; }
+  .sw { width: 38px; height: 38px; border-radius: 50%; cursor: pointer; border: 3px solid transparent; padding: 0; }
+  .sw.on { border-color: #fff; }
+  .preview { background: repeating-conic-gradient(#1a1a1d 0% 25%, #101012 0% 50%) 0 0/20px 20px; border-radius: 12px; display: flex; justify-content: center; padding: 8px; }
+  iframe { border: 0; width: 380px; height: 640px; background: transparent; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #666; margin-left: 6px; }
+  .dot.on { background: #34e07a; box-shadow: 0 0 8px #34e07a; }
+  .log { max-height: 150px; overflow: auto; font-size: 13px; color: #bbb; line-height: 1.8; }
+  .lb { font-size: 13px; }
+  .lb div { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid #222; }
+  .lb span.n { flex: 1; }
+  .lb button { padding: 3px 9px; font-size: 12px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 7px; }
+  .chip { padding: 7px 13px; font-size: 13px; }
+  .chip.on { background: #3a1016; border-color: #ff3b4e; color: #fff; }
+  .note { font-size: 12px; color: #888; margin-top: 6px; }
+  .toast { position: fixed; bottom: 18px; left: 18px; background: #222; padding: 10px 16px; border-radius: 10px; opacity: 0; transition: opacity .3s; }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<header>🪙 <span>تحدي العملات — لوحة التحكم</span></header>
+
+<div class="bar">
+  <button class="go" onclick="cmd('start')">▶ تشغيل</button>
+  <button class="pause" onclick="cmd('pause')">⏸ إيقاف مؤقت</button>
+  <button class="reset" onclick="if(confirm('تصفير الوقت والنتائج؟'))cmd('reset')">🗑 إعادة تعيين</button>
+  <input class="url" id="url" readonly>
+  <button class="copy" onclick="copyUrl()">نسخ</button>
+</div>
+
+<div class="main">
+  <div>
+    <div class="panel" style="margin-bottom:18px">
+      <h3>🎮 التحكم في الوقت</h3>
+      <div class="row">
+        <button onclick="cmd('addTime',{seconds:-30})">-30 ث</button>
+        <button onclick="cmd('addTime',{seconds:-10})">-10 ث</button>
+        <button onclick="cmd('addTime',{seconds:10})">+10 ث</button>
+        <button onclick="cmd('addTime',{seconds:30})">+30 ث</button>
+        <button onclick="cmd('addTime',{seconds:60})">+1 د</button>
+        <button onclick="cmd('addTime',{seconds:300})">+5 د</button>
+      </div>
+      <div class="note">الأزرار دي تزود/تنقص من الوقت المتبقي وهو شغال.</div>
+    </div>
+
+    <div class="panel" style="margin-bottom:18px">
+      <h3>⚙ الإعدادات</h3>
+      <div class="field"><label>عنوان التحدي</label><input id="title"></div>
+      <div class="two">
+        <div class="field"><label>مدة التحدي (دقائق)</label><input id="durMin" type="number" min="0" step="1"></div>
+        <div class="field"><label>+ ثواني</label><input id="durSec" type="number" min="0" max="59" step="1"></div>
+      </div>
+      <div class="two">
+        <div class="field"><label>وقت إضافي لما الوقت يخلص (ثواني — 0 = بدون)</label><input id="overtime" type="number" min="0"></div>
+        <div class="field"><label>تنبيه آخر كام ثانية</label><input id="warn" type="number" min="0"></div>
+      </div>
+      <div class="field"><label><input type="checkbox" id="extendOn"> تمديد آخر لحظة: أي هدية في آخر ثواني التحدي بتزوّد الوقت</label></div>
+      <div class="two">
+        <div class="field"><label>آخر كام ثانية</label><input id="extendWindow" type="number" min="1"></div>
+        <div class="field"><label>الزيادة (عملات=ثواني، سطر لكل مستوى)</label><textarea id="extendTiers" rows="3" style="width:100%;direction:ltr"></textarea></div>
+      </div>
+      <div class="note">مثال: 1=10 يعني أي هدية تزوّد 10 ثواني، 50=20 يعني هدية 50 عملة فأكتر تزوّد 20، 100=30 تزوّد 30.</div>
+      <div class="field"><label>عدد المراكز الظاهرة (1 إلى 10)</label>
+        <select id="places"></select>
+      </div>
+      <div class="field"><label>الشكل (التصميم)</label><div class="chips" id="styles"></div></div>
+      <div class="field"><label>الخلفية</label><div class="chips" id="bgs"></div></div>
+      <div class="field"><label>التأثير عند وصول هدية</label><div class="chips" id="effects"></div></div>
+      <div class="field"><label>الألوان</label>
+        <div class="themes" id="themes"></div>
+      </div>
+      <button class="go" onclick="saveSettings()">حفظ الإعدادات</button>
+    </div>
+
+    <div class="panel" style="margin-bottom:18px">
+      <h3>🏆 مستويات الجايزة (للمركز الأول)</h3>
+      <label style="flex-direction:row;align-items:center;gap:8px;color:#ddd;margin-bottom:10px;font-size:13px"><input type="checkbox" id="showPrizes" style="width:auto"> إظهار المستويات على الشاشة</label>
+      <div class="note" style="margin:0 0 10px">الجايزة بتتحدد حسب عملات <b>المركز الأول بس</b>. لما الأول يعدّي مستوى، المزاد كله بيروح للمستوى اللي بعده، والمستوى الحالي بينوّر على الشاشة. المستوى بيبدأ من الرقم اللي في "من".</div>
+      <div id="prizeRows"></div>
+      <label class="field" style="margin-top:8px">رسالة الفائز في الآخر ({name} = اسمه، {prize} = الجايزة)<input id="winText" maxlength="80"></label>
+      <div class="row" style="margin-top:8px">
+        <button onclick="addPrizeRow()">+ إضافة مستوى</button>
+        <button class="go" onclick="savePrizes()">حفظ الجوايز</button>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-bottom:18px">
+      <h3>🏷 أسعار الهدايا اليدوية</h3>
+      <div class="note" style="margin:0 0 8px">لو هدية وصلت وما اتحسبتش (هتلاقيها في السجل "بدون سعر")، اكتب اسمها وسعرها هنا، كل واحدة في سطر. مثال:<br><span style="direction:ltr;display:inline-block">Lion=29999</span></div>
+      <textarea id="giftPrices" rows="3" style="width:100%;direction:ltr;font-family:monospace" placeholder="Rose=1"></textarea>
+      <div class="row" style="margin-top:8px"><button class="go" onclick="saveGiftPrices()">حفظ الأسعار</button></div>
+    </div>
+
+    <div class="panel" style="margin-bottom:18px">
+      <h3>🔗 الربط مع اللايف <span class="dot" id="dot"></span><span id="connMsg" style="font-weight:400;color:#aaa;font-size:13px">غير متصل</span></h3>
+      <div class="field" hidden><label>مصدر الهدايا</label>
+        <select id="source"><option value="tikfinity">TikFinity (موصى به)</option><option value="direct">مباشر باسم الحساب</option></select></div>
+      <div id="tfBox">
+        <div class="note" style="margin:0 0 10px">افتح برنامج TikFinity على الكمبيوتر وسيبه شغال. التطبيق بيتربط بيه لوحده ويكتبلك "متصل". مفيش حاجة تكتبها.</div>
+        <div class="field"><label>بورت TikFinity (غالباً 21213)</label><input id="tfPort" type="number" style="direction:ltr"></div>
+      </div>
+      <div id="dirBox">
+      <div class="field"><label>اسم حسابك على تيك توك (بدون @)</label><input id="user" style="direction:ltr" placeholder="username"></div>
+      <label style="flex-direction:row;align-items:center;gap:8px;color:#ddd;margin-bottom:10px;font-size:13px"><input type="checkbox" id="auto" style="width:auto"> اتصال تلقائي لما أفتح تيك توك استوديو</label>
+      <div class="note" id="autoNote" style="margin:-4px 0 10px"></div>
+      </div>
+      <div class="row">
+        <button class="go" onclick="cmd('connect',{username:val('user')})">اتصال</button>
+        <button class="reset" onclick="cmd('disconnect')">فصل</button>
+      </div>
+      <div class="note">لازم اللايف يكون شغال. أي هدية تتبعت يتضاف اسم صاحبها تلقائي وعملاتها تتحسب (الهدايا بتتحسب بس والتحدي شغال).</div>
+    </div>
+
+    <div class="panel">
+      <h3>🧪 تجربة</h3>
+      <div class="row">
+        <button onclick="cmd('testGift')">هدية تجريبية</button>
+        <button onclick="cmd('testExtend')">⏱ اختبار التمديد</button>
+        <button onclick="cmd('testBurst')">10 هدايا تجريبية</button>
+      </div>
+      <div class="note">التجربة بتشتغل حتى لو التحدي موقوف. اضغط "إعادة تعيين" بعدها عشان تمسح النتائج التجريبية.</div>
+      <div class="log" id="log" style="margin-top:10px"></div>
+    </div>
+  </div>
+
+  <div>
+    <div class="panel" style="margin-bottom:18px">
+      <h3>👁 معاينة مباشرة</h3>
+      <div class="preview"><iframe id="pv"></iframe></div>
+    </div>
+    <div class="panel">
+      <h3>🏅 الترتيب الحالي</h3>
+      <div class="lb" id="lb"></div>
+      <div class="note">تقدر تشيل أي مشارك من الترتيب بزر ✕.</div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js"></script>
+<script src="relay.js"></script>
+<script src="card.js"></script>
+<script>
+const THEMES = { red:'أحمر', gold:'ذهبي', blue:'أزرق', purple:'بنفسجي', green:'أخضر', pink:'وردي', mono:'رمادي' };
+const $ = (id) => document.getElementById(id);
+const val = (id) => $(id).value;
+const socket = io();
+let cur = { theme: 'red', style: 'classic', bg: 'grad', effect: 'none' }, first = true;
+const O = CoinCard.OPTIONS;
+
+$('auto').onchange = () => socket.emit('cmd', { type: 'settings', settings: { autoConnect: $('auto').checked } });
+$('user').addEventListener('change', () => socket.emit('cmd', { type: 'settings', settings: { username: val('user') } }));
+$('source').onchange = () => socket.emit('cmd', { type: 'settings', settings: { source: $('source').value } });
+$('tfPort').addEventListener('change', () => socket.emit('cmd', { type: 'settings', settings: { tikfinityPort: val('tfPort') } }));
+var BASE = location.href.split('?')[0].replace(/admin\.html$/, '');
+$('url').value = BASE + 'overlay.html?room=' + CCRelay.room;
+$('pv').src = 'overlay.html?view=1&room=' + CCRelay.room;
+for (let i = 1; i <= 10; i++) $('places').add(new Option(i + (i === 1 ? ' مركز' : ' مراكز'), i));
+function chips(boxId, key, map) {
+  Object.keys(map).forEach((k) => {
+    const b = document.createElement('button'); b.className = 'chip'; b.textContent = map[k]; b.dataset.k = k;
+    b.onclick = () => { cur[key] = k; mark(); const p = {}; p[key] = k; socket.emit('cmd', { type: 'settings', settings: p }); };
+    $(boxId).appendChild(b);
+  });
+}
+chips('styles', 'style', O.styles); chips('bgs', 'bg', O.bgs); chips('effects', 'effect', O.effects);
+Object.keys(O.themes).forEach((k) => {
+  const b = document.createElement('button');
+  b.className = 'sw'; b.title = O.themes[k]; b.dataset.k = k; b.dataset.theme = k;
+  b.style.background = 'linear-gradient(135deg,var(--accent),var(--a2))';
+  b.onclick = () => { cur.theme = k; mark(); socket.emit('cmd', { type: 'settings', settings: { theme: k } }); };
+  $('themes').appendChild(b);
+});
+function mark() {
+  document.querySelectorAll('.sw').forEach((b) => b.classList.toggle('on', b.dataset.k === cur.theme));
+  [['styles', 'style'], ['bgs', 'bg'], ['effects', 'effect']].forEach(([box, key]) =>
+    document.querySelectorAll('#' + box + ' .chip').forEach((b) => b.classList.toggle('on', b.dataset.k === cur[key])));
+}
+
+function cmd(type, extra) { socket.emit('cmd', { type, ...(extra || {}) }); }
+function toast(t) { const e = $('toast'); e.textContent = t; e.classList.add('show'); setTimeout(() => e.classList.remove('show'), 1800); }
+function copyUrl() {
+  navigator.clipboard.writeText($('url').value).then(() => toast('تم نسخ الرابط ✓'), () => { $('url').select(); document.execCommand('copy'); toast('تم نسخ الرابط ✓'); });
+}
+function prizeRow(r) {
+  const d = document.createElement('div');
+  d.className = 'prow'; d.style.cssText = 'display:grid;grid-template-columns:90px 1fr auto;gap:8px;margin-bottom:8px';
+  d.innerHTML = '<input type="number" min="0" placeholder="من" aria-label="من كام عملة"><input placeholder="النص (مثال: 2000 روبوكس)" maxlength="40"><button class="reset" title="حذف" style="padding:6px 12px">✕</button>';
+  d.children[0].value = r.from; d.children[1].value = r.text;
+  d.children[2].onclick = () => d.remove();
+  $('prizeRows').appendChild(d);
+}
+function addPrizeRow() { prizeRow({ from: '', text: '' }); }
+function savePrizes() {
+  const prizes = [...document.querySelectorAll('.prow')].map((d) => ({ from: d.children[0].value, text: d.children[1].value.trim() })).filter((r) => r.text);
+  socket.emit('cmd', { type: 'settings', settings: { prizes, showPrizes: $('showPrizes').checked, winText: $('winText').value } });
+  toast('تم حفظ الجوايز ✓');
+}
+function saveGiftPrices() {
+  const gp = {};
+  $('giftPrices').value.split('\n').forEach((l) => { const i = l.lastIndexOf('='); if (i > 0) gp[l.slice(0, i).trim()] = l.slice(i + 1).trim(); });
+  socket.emit('cmd', { type: 'settings', settings: { giftPrices: gp } });
+  toast('تم حفظ الأسعار ✓');
+}
+function saveSettings() {
+  const duration = (parseInt(val('durMin'), 10) || 0) * 60 + (parseInt(val('durSec'), 10) || 0);
+  socket.emit('cmd', { type: 'settings', settings: {
+    title: val('title'), duration, overtime: val('overtime'),
+    extendOn: $('extendOn').checked, extendWindow: val('extendWindow'),
+    extendTiers: val('extendTiers').split('\n').map((l) => { const i = l.indexOf('='); return i > 0 ? { from: l.slice(0, i).trim(), seconds: l.slice(i + 1).trim() } : null; }).filter(Boolean), warnSeconds: val('warn'), places: val('places')
+  }});
+  toast('تم الحفظ ✓');
+}
+
+socket.on('state', (s) => {
+  $('source').value = s.settings.source;
+  $('tfBox').hidden = s.settings.source !== 'tikfinity';
+  $('dirBox').hidden = s.settings.source !== 'direct';
+  if (document.activeElement !== $('tfPort')) $('tfPort').value = s.settings.tikfinityPort;
+  $('auto').checked = !!s.settings.autoConnect;
+  $('autoNote').textContent = !s.settings.autoConnect ? '' :
+    s.auto.paused ? 'الاتصال التلقائي واقف لأنك ضغطت "فصل". اضغط "اتصال" عشان يرجع.' :
+    !s.settings.username ? 'اكتب اسم حسابك الأول.' :
+    s.tiktok.connected ? '' :
+    (s.auto.studioOpen || s.auto.overlays) ? 'تيك توك استوديو مفتوح — بحاول أربط باللايف لوحدي.' : 'في انتظار فتح تيك توك استوديو...';
+  if (first) {
+    first = false;
+    $('title').value = s.settings.title;
+    $('durMin').value = Math.floor(s.settings.duration / 60);
+    $('durSec').value = s.settings.duration % 60;
+    $('overtime').value = s.settings.overtime;
+    $('extendOn').checked = s.settings.extendOn; $('extendWindow').value = s.settings.extendWindow;
+    $('extendTiers').value = (s.settings.extendTiers || []).map((t) => t.from + '=' + t.seconds).join('\n');
+    $('warn').value = s.settings.warnSeconds;
+    $('places').value = s.settings.places;
+    $('user').value = s.settings.username || '';
+    $('showPrizes').checked = !!s.settings.showPrizes;
+    $('winText').value = s.settings.winText || '';
+    (s.settings.prizes || []).forEach(prizeRow);
+    $('giftPrices').value = Object.keys(s.settings.giftPrices || {}).map((k) => k + '=' + s.settings.giftPrices[k]).join('\n');
+  }
+  ['theme','style','bg','effect'].forEach((k) => cur[k] = s.settings[k]); mark();
+  $('dot').classList.toggle('on', s.tiktok.connected);
+  $('connMsg').textContent = s.tiktok.message;
+  $('lb').innerHTML = s.top.length ? '' : '<div style="color:#777">لسه محدش شارك</div>';
+  s.top.forEach((u, i) => {
+    const d = document.createElement('div');
+    d.innerHTML = '<b>' + (i + 1) + '</b><span class="n"></span><span>' + u.coins.toLocaleString('en-US') + ' 🪙</span><button title="إزالة">✕</button>';
+    d.querySelector('.n').textContent = u.name;
+    d.querySelector('button').onclick = () => cmd('removeUser', { id: u.id });
+    $('lb').appendChild(d);
+  });
+});
+socket.on('gift', (g) => {
+  const l = $('log'), d = document.createElement('div');
+  if (g.zero) { d.textContent = g.name + ' ← هدية (' + (g.giftName || '؟') + ') وصلت بدون سعر ولا اتحسبت — ضيف سعرها في "أسعار الهدايا اليدوية"'; d.style.color = '#ff6b78'; l.prepend(d); return; }
+  d.textContent = g.name + ' ← ' + g.coins + ' 🪙' + (g.giftName ? ' (' + g.giftName + ')' : '') + (g.ignored ? ' — وصلت بس متجاهلة (التحدي مش شغال)' : '');
+  if (g.ignored) d.style.color = '#ffc83d';
+  l.prepend(d); while (l.children.length > 30) l.lastChild.remove();
+});
+socket.on('extend', (e) => toast('⏱ +' + e.seconds + ' ثانية (' + e.by + ' — ' + e.coins + ')'));
+socket.on('overtime', (sec) => toast('⏱ بدأ الوقت الإضافي: ' + sec + ' ثانية'));
+</script>
+</body>
+</html>
