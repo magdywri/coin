@@ -1,6 +1,7 @@
 /* الربط بين لوحة التحكم وشاشة اللايف عن طريق وسيط مجاني على النت (MQTT) — من غير أي برنامج على الجهاز */
 (function (g) {
-  var BROKERS = ['wss://broker.emqx.io:8084/mqtt', 'wss://broker.hivemq.com:8884/mqtt'];
+  var BROKERS = ['wss://broker.emqx.io:8084/mqtt', 'wss://broker.hivemq.com:8884/mqtt', 'wss://mqtt.eclipseprojects.io/mqtt', 'wss://test.mosquitto.org:8081/'];
+  var INFO = { lib: typeof mqtt !== 'undefined', url: '', status: 'connecting', err: '', tries: 0 };
   function getRoom() {
     var q = new URLSearchParams(location.search).get('room'), r = q;
     var pm = location.pathname.match(/\/o\/([A-Za-z0-9]+)/);
@@ -20,10 +21,10 @@
     var subs = {}, ci = 0, client = null, status = 'connecting', statusCb = function () {};
     var pending = [];
     function top(s) { return 'ccsite-v1/' + room + '/' + s; }
-    function setStatus(s) { status = s; statusCb(s); }
+    function setStatus(s) { status = s; INFO.status = s; statusCb(s); }
     function start() {
-      if (typeof mqtt === 'undefined') return setStatus('error');
-      var url = BROKERS[ci % BROKERS.length], gaveUp = false;
+      if (typeof mqtt === 'undefined') { INFO.lib = false; INFO.err = 'مكتبة mqtt ما اتحمّلتش (jsdelivr مقفول؟)'; return setStatus('error'); }
+      var url = BROKERS[ci % BROKERS.length], gaveUp = false; INFO.url = url; INFO.tries++; INFO.lib = true;
       client = mqtt.connect(url, { clean: true, reconnectPeriod: 3000, connectTimeout: 9000, clientId: 'cc_' + Math.random().toString(36).slice(2, 10) });
       var t = setTimeout(function () { if (status !== 'ok') { gaveUp = true; try { client.end(true); } catch (e) {} ci++; start(); } }, 10000);
       client.on('connect', function () {
@@ -31,6 +32,7 @@
         Object.keys(subs).forEach(function (k) { client.subscribe(top(k), { qos: 0 }); });
         pending.splice(0).forEach(function (p) { client.publish(top(p[0]), p[1], { retain: p[2] }); });
       });
+      client.on('error', function (e) { INFO.err = String(e && e.message || e).slice(0, 80); });
       client.on('close', function () { if (status === 'ok') setStatus('connecting'); });
       client.on('message', function (tp, payload) {
         var k = tp.slice(top('').length), f = subs[k]; if (!f) return;
@@ -50,7 +52,20 @@
       }
     };
   }
-  g.CCRelay = { open: open, room: room };
+  g.CCRelay = { open: open, room: room, info: INFO };
+  // شريط حالة صغير: في لوحة التحكم دايماً، وفي الشاشة لو الرابط فيه debug=1
+  function badge() {
+    var dbg = new URLSearchParams(location.search).get('debug');
+    if (!document.getElementById('pv') && !dbg) return;
+    var b = document.createElement('div');
+    b.style.cssText = 'position:fixed;z-index:98;left:8px;bottom:8px;max-width:92vw;background:rgba(0,0,0,.75);color:#9fe;border:1px solid #356;border-radius:8px;padding:5px 10px;font:12px monospace;direction:ltr;pointer-events:none';
+    document.body.appendChild(b);
+    setInterval(function () {
+      b.textContent = 'relay: ' + INFO.status + ' | lib:' + (typeof mqtt !== 'undefined' ? 'ok' : 'NO') + ' | ' + INFO.url.replace('wss://', '') + ' | try#' + INFO.tries + (INFO.err ? ' | ' + INFO.err : '');
+      b.style.color = INFO.status === 'ok' ? '#7f7' : '#fc6';
+    }, 1000);
+  }
+  if (document.body) badge(); else document.addEventListener('DOMContentLoaded', badge);
 
   // مكان socket.io: لوحة التحكم ومعاينة الشاشة بتستخدم نفس الكود القديم بس عن طريق الوسيط
   g.io = function () {
